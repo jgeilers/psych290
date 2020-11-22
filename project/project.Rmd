@@ -1,0 +1,73 @@
+---
+title: "project"
+author: "Jackson Eilers"
+date: "11/18/2020"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(RMySQL)
+library(ggthemes)
+library(grid)
+library(reshape2)
+library(caret)
+library(mnormt)
+library(psych)
+library(corrplot)
+library(ggpubr)
+SUNET_id = "jeilers"
+```
+
+```{r}
+db_con = dbConnect(MySQL(), user= SUNET_id, password="", dbname = SUNET_id, host='127.0.0.1')
+# dbGetQuery(db_con, "show databases")
+dbGetQuery(db_con, "use jeilers_project")
+# dbGetQuery(db_con, "show tables")
+```
+
+```{r}
+messages.byGroup <- dbGetQuery(db_con, " select count(*) as message_count, poster_id from 4chan2 group by poster_id ")
+
+qplot(messages.byGroup$message_count, log = "y") + ylab("log(Number of users)") + xlab("Number of posts") + xlim(0,51)
+
+```
+
+```{r}
+describe(messages.byGroup)
+```
+
+
+```{r}
+messages.byHour <- dbGetQuery(db_con, "select count(*) as message_count, date_time from 4chan2 group by date_time ")
+
+qplot(messages.byHour$date_time, messages.byHour$message_count) + ylab("Blog post count") + xlab("Hour of posting")
+```
+
+
+
+```{r}
+min(as.Date(messages.byHour$date_time))
+max(as.Date(messages.byHour$date_time))
+```
+
+```{r}
+emnlp_gender <- dbGetQuery(db_con, "select group_id, group_norm as gender_estimate from feat$cat_dd_emnlp14_ageGender_w$msgs$user_id$1gra where feat = 'GENDER' ")
+emnlp_outcomes <- dbGetQuery(db_con, "select age, gender, user_id from blog_outcomes")
+emnlp_outcomes_dict <- merge(x=emnlp_outcomes,y=emnlp_age,by.x='user_id',by.y='group_id')
+emnlp_outcomes_dict <- merge(x=emnlp_outcomes_dict,y=emnlp_gender,by.x='user_id',by.y='group_id')
+print(" ")
+head(emnlp_outcomes_dict)
+
+#thank you again, shrinidhi for the tip of using melt
+data = melt(emnlp_outcomes_dict,measure.vars=c('age','age_estimate'))
+p1 <- (ggplot(data=data,aes(x=value,fill=variable)) +
+       geom_histogram(bins=100,position='dodge') +
+       theme(legend.position='top'))
+p2 <- (ggplot(data=data,aes(x=value,fill=variable)) +
+       geom_density(alpha=0.2) +
+       theme(legend.position='top'))
+ggarrange(p1,p2,nrow=2,ncol=1)
+```
+
+
